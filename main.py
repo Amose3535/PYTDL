@@ -12,6 +12,7 @@ class YTDLApp(customtkinter.CTk):
     #Initialization function (called when making a new instance of YTDLApp)
     def __init__(self, fg_color = None, **kwargs):
         super().__init__(fg_color, **kwargs)
+        #print(self.cget("bg")) <<< Used to know that the bgcolor is gray14
         
         #App windows settings
         self.geometry("720x480")
@@ -49,8 +50,8 @@ class YTDLApp(customtkinter.CTk):
         self.download_audio_button = customtkinter.CTkButton(self, width=140, height=30, corner_radius=8, border_width=1, text="Download as audio", command=self.start_audio_download)
         self.download_audio_button.pack(pady=5)
         
-        #Add invis. feedback text
-        self.error_text = customtkinter.CTkLabel(self, text_color="red", text="YouTube link is invalid", font=self.SUBTITLE_FONT)
+        #Add error feedback text (we make it invisible so it can be later changed)
+        self.error_text = customtkinter.CTkLabel(self, text_color="gray14", text="YouTube link is invalid", font=self.SUBTITLE_FONT)
         self.error_text.pack()
         
     def start_video_download(self):
@@ -60,9 +61,7 @@ class YTDLApp(customtkinter.CTk):
             video = YT_object.streams.get_highest_resolution()
             video.download
         except:
-            #TODO: RENDERE IL TESTO VISIBiLE
-            time.sleep(3)
-            self.error_text.configure() #TODO: Rendere il testo trasparente
+            self.error_text.configure(text_color="red")
     
     def start_audio_download(self):
         try:
