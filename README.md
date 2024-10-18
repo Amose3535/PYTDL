@@ -9,12 +9,12 @@ If you want to download it **you can manually allow it** in your software but <m
 
 To correctly install the file you will have to <mark>follow these **three easy steps**</mark>:
 
-1. Download from the latest release "PYTDL-main-OS.zip"
-2. Save the zipped file you just downloaded in your preferred folder and unzip it: The app is called "PYTD-main.exe"
+1. Download from the latest release "PYTDL-main.exe"
+3. Save the zipped file you just downloaded in your preferred folder and unzip it: The app is called "PYTD-main.exe"
 
     (Next steps are only necessary if the Antivirus flags this as malicious software)
   
-3. - After you downloaded the file, if there is a popup from the Antivirus asking for an action for the supposed "threat" allow the file you just downloaded 
+4. - After you downloaded the file, if there is a popup from the Antivirus asking for an action for the supposed "threat" allow the file you just downloaded 
    - If there is no popup OR after doing the previous step you can't find the file or it won't run navigate n your Anti virus software towards exceptions/exclusions and make sure to allow both file type "PYDL-main.exe" and process "PYDL-main.exe"
 
 ## Qualities
