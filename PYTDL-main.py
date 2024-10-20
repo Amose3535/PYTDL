@@ -2,6 +2,7 @@ import customtkinter
 from pytubefix import YouTube as YT
 import threading
 import os
+from moviepy.editor import VideoFileClip, AudioFileClip
 
 #System settings.
 customtkinter.set_appearance_mode("System")
@@ -46,16 +47,17 @@ class YTDLApp(customtkinter.CTk):
         self.link_field = customtkinter.CTkEntry(self, width=400, height=40, textvariable=self.url_var, font=self.SUBTITLE_FONT, placeholder_text="Enter a YouTube link here", placeholder_text_color="white")
         self.url_var.trace_add("write", lambda *args: threading.Thread(target=self.on_url_change).start())
         self.link_field.pack(pady=10)
-        #Add dropdown menu to select the quality of the video
+        
+        #Add dropdown to choose the quality of the video
         self.video_quality_var = customtkinter.StringVar()
-        self.quality_menu = customtkinter.CTkOptionMenu(self, variable=self.video_quality_var, values=["Select video quality"],font=self.SUBTITLE_FONT, command=self.on_quality_change)
-        self.video_quality_var.set("Select video quality")
-        self.quality_menu.pack(pady=2)
-        #Add a dropdown menu to select the quality of the audio
+        self.video_quality_dropdown = customtkinter.CTkOptionMenu(self, variable=self.video_quality_var, values=["Select video quality"], font=self.SUBTITLE_FONT)
+        self.video_quality_dropdown.set("Select video quality")
+        self.video_quality_dropdown.pack(pady=2)
+        #Add dropdown to choose the quality of the audio
         self.audio_quality_var = customtkinter.StringVar()
-        self.audio_quality_menu = customtkinter.CTkOptionMenu(self, variable=self.audio_quality_var, values=["Select audio quality"],font=self.SUBTITLE_FONT)
-        self.audio_quality_var.set("Select audio quality")
-        self.audio_quality_menu.pack(pady=2)
+        self.audio_quality_dropdown = customtkinter.CTkOptionMenu(self, variable=self.audio_quality_var, values=["Select audio quality"], font=self.SUBTITLE_FONT)
+        self.audio_quality_dropdown.set("Select audio quality")
+        self.audio_quality_dropdown.pack(pady=2)
         
         #Input field 2
         #Add Subtitle 2
@@ -88,12 +90,41 @@ class YTDLApp(customtkinter.CTk):
         #Add error feedback text (we make it invisible so it can be later changed)
         self.status_label = customtkinter.CTkLabel(self, text_color="gray14", text="", font=self.SUBTITLE_FONT)
         self.status_label.pack()
+    
+    def on_url_change(self):
+        #Get the link
+        YT_link = self.url_var.get()
+        print("The link is: ", YT_link)
+        #Check if the link is valid
+        try:
+            YT_object = YT(YT_link)
+            #Get the title of the video
+            title = YT_object.title
+            #Get the video and audio qualities
+            video_qualities = []
+            audio_qualities = []
+            for stream in YT_object.streams.filter(adaptive=True, file_extension='mp4', only_video=True).order_by('resolution'):
+                print(f"{stream.resolution}@{stream.fps}fps")
+                video_qualities.append(f"{stream.resolution}@{stream.fps}fps")
+            for stream in YT_object.streams.filter(only_audio=True):
+                print(f"{stream.abr} - {stream.audio_codec}")
+                audio_qualities.append(f"{stream.abr}-{stream.audio_codec}")
+            
+            #Set the video and audio qualities in the dropdowns
+            self.video_quality_dropdown.configure(values=video_qualities)
+            self.audio_quality_dropdown.configure(values=audio_qualities)
+            
+            #Set the title of the video in the status label
+            self.status_label.configure(text=f"Chosen video: {title}", text_color="green")
+        except Exception as e:
+            self.status_label.configure(text=f"An error occurred: {e}", text_color="red")
         
+
     def start_video_download(self):
         self.progress_bar.set(0)
         self.progress_label.configure(text="0%")
         try:
-            print("The link is: ", self.url_var.get())
+            #print("The link is: ", self.url_var.get())
             dir_path = self.dir_var.get()
             if os.path.isdir(dir_path) and dir_path.strip():
                 self.download_dir = dir_path
@@ -101,18 +132,67 @@ class YTDLApp(customtkinter.CTk):
             else:
                 self.status_label.configure(text="Invalid directory. Using default download directory instead.", text_color="yellow")
                 self.download_dir = self.DEFAULT_DOWNLOAD_DIR
-            print("The dir is: ", self.download_dir)
+            #print("The dir is: ", self.download_dir)
             
             YT_link = self.url_var.get()
             YT_object = YT(YT_link, on_progress_callback=self.on_progress)
-
-            #Get video stream and audio stream both in highest resolution and download both, then merge them.
-            video_stream = YT_object.streams.filter(only_video=True, adaptive=True).desc().first()
-            audio_stream = YT_object.streams.filter(adaptive=True, only_audio=True).desc().first()
-
+            video_stream = YT_object.streams.filter(file_extension='mp4', only_video=True, resolution=self.video_quality_var.get().split("@")[0], fps=int(self.video_quality_var.get().split("@")[1].removesuffix("fps"))).first()
             
+            
+            audio_stream = YT_object.streams.filter(file_extension='mp4', only_audio=True, abr=self.audio_quality_var.get().split("-")[0]).first()
+            
+            if not audio_stream:
+                self.status_label.configure(text="Selected audio quality not available. Using max audio quality instead.", text_color="yellow")
+                audio_stream = YT_object.streams.filter(only_audio=True).order_by('abr').last()
+            
+            #Download the video and audio files
+            try:
+                self.status_label.configure(text="Downloading Video...", text_color="yellow")
+                video_stream.download(output_path=self.download_dir,filename='video.mp4')
+            except Exception as e:
+                self.status_label.configure(text=f"An error occurred while downloading the video.\nError: {e}", text_color="red")
+                breakpoint()
+            try:
+                self.status_label.configure(text="Downloading Audio...", text_color="yellow")
+                audio_stream.download(output_path=self.download_dir,filename='audio.mp4')
+            except Exception as e:
+                self.status_label.configure(text=f"An error occurred while downloading the audio.\nError: {e}", text_color="red")
+                breakpoint()  
+            
+            #Make the video and audio clips
+            try:
+                self.status_label.configure(text="Combining video...", text_color="yellow")
+                video_clip = VideoFileClip(os.path.join(self.download_dir, 'video.mp4'))
+            except Exception as e:
+                self.status_label.configure(text=f"An error occurred while making the video clip.\nError: {e}", text_color="red")
+                breakpoint()
+            try:
+                self.status_label.configure(text="Combining audio...", text_color="yellow")
+                audio_clip = AudioFileClip(os.path.join(self.download_dir, 'audio.mp4'))
+            except Exception as e:
+                self.status_label.configure(text=f"An error occurred while making the audio clip.\nError: {e}", text_color="red")
+                breakpoint()
+            
+            #Combine the video and audio
+            try:
+                self.status_label.configure(text="Combining video with audio...", text_color="yellow")
+                final_clip = video_clip.set_audio(audio_clip)
+            except Exception as e:
+                self.status_label.configure(text=f"An error occurred while combining the video with audio.\nError: {e}", text_color="red")
+                breakpoint()
 
-            #Move the new file 
+            try:
+                self.status_label.configure(text="Writing final video...", text_color="yellow")
+                final_clip.write_videofile(os.path.join(self.download_dir, f"{YT_object.title}.mp4"))
+            except Exception as e:
+                self.status_label.configure(text=f"An error occurred while writing the final video.\nError: {e}", text_color="red")
+                breakpoint()
+            
+            #Delete the video and audio files
+            #Non metto la try/except perchè se non vanno a buon fine non mi interessa
+            os.remove(os.path.join(self.download_dir, 'video.mp4'))
+            os.remove(os.path.join(self.download_dir, 'audio.mp4'))
+            
             self.status_label.configure(text="Download completed!", text_color="green")
         except Exception as e:
             self.status_label.configure(text_color="red", text=f"An error occurred: {e}")
@@ -134,7 +214,8 @@ class YTDLApp(customtkinter.CTk):
             
             YT_link = self.url_var.get()
             YT_object = YT(YT_link, on_progress_callback=self.on_progress)
-            audio_stream = YT_object.streams.filter(only_audio=True).first()
+            #Use the user selection to download the audio
+            audio_stream = YT_object.streams.filter(only_audio=True, abr=self.audio_quality_var.get().split("-")[0]).first()
             self.status_label.configure(text=f"Downloading:\n{YT_object.title}\nIn:{self.download_dir}", text_color="yellow")
             audio_file = audio_stream.download(output_path=self.download_dir)
             
@@ -148,32 +229,6 @@ class YTDLApp(customtkinter.CTk):
             self.status_label.configure(text_color="red", text=f"An error occurred: {e}")
             print(f"An error occurred: {e}")
 
-    # Handle URL change
-    def on_url_change(self, *args):
-        print(f"URL changed to: {self.url_var.get()}")
-        try:
-            YT_link = self.url_var.get()
-            YT_object = YT(YT_link)
-            video_streams = YT_object.streams.filter(adaptive=True,type="video").desc()
-            video_qualities = []
-            for stream in video_streams:
-                #DEBUG:
-                #Print resolution of the video
-                #print(f"{stream.resolution}@{stream.fps}fps")
-                
-                #Append the resolution to the list
-                video_qualities.append(f"{stream.resolution}@{stream.fps}fps")
-            self.quality_menu.configure(values=video_qualities)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            self.quality_menu.configure(values=["Select an option"])
-            self.video_quality_var.set("Select an option")
-
-    # Handle quality change
-    def on_quality_change(self, choice):
-        print(f"Quality selected: {choice}")
-        self.video_quality_var.set(choice)
-
     #Progress callback function
     def on_progress(self, stream, chunk, bytes_remaining):
         total_size = stream.filesize
@@ -184,4 +239,4 @@ class YTDLApp(customtkinter.CTk):
 
 #Run app
 YTDLInstance = YTDLApp()
-YTDLInstance.mainloop()
+YTDLInstance.mainloop() 
