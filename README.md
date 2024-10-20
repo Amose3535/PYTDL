@@ -25,6 +25,6 @@ Pros:
 - (Obv) Data is processed EXCLUSIVELY on user's device.
 
 Cons:
-- Videos are limited to low resolution due to youtube limitation on downloads.
+- Videos (expecially if high res) are slow to download due to the fact that the machine has to download audio, video, and render them out
 
 
