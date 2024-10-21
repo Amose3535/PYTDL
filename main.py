@@ -1,8 +1,19 @@
-import customtkinter
-from pytubefix import YouTube as YT
+"""PYTDL"""
+
+import sys
 import threading
-import os
+from pathlib import Path
+
+import customtkinter
 from moviepy.editor import VideoFileClip, AudioFileClip
+from pytubefix import YouTube as YT
+
+
+if getattr(sys, 'frozen', False):
+    ROOT_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+else:
+    ROOT_DIR = Path(__file__).parent
+
 
 #System settings.
 customtkinter.set_appearance_mode("System")
@@ -20,13 +31,12 @@ class YTDLApp(customtkinter.CTk):
         self.minsize(720,520)
         self.maxsize(850,750)
         self.title("PYTDL")
-        #self.iconbitmap("PYTDL.ico")
+        self.iconbitmap(ROOT_DIR / "icon.ico")
         
         #Some constants and variables
         self.TITLE_FONT = customtkinter.CTkFont(family="Arial", size=20, weight="bold")
         self.SUBTITLE_FONT = customtkinter.CTkFont(family="Arial", size=16, weight="normal")
-        self.DEFAULT_DOWNLOAD_DIR = "C:\\Users\\username\\Downloads"
-        self.DEFAULT_DOWNLOAD_DIR = self.DEFAULT_DOWNLOAD_DIR.replace("username", os.getlogin())
+        self.DEFAULT_DOWNLOAD_DIR = Path.home() / "Downloads"
         print("The default download directory is: ", self.DEFAULT_DOWNLOAD_DIR)
         self.download_dir = self.DEFAULT_DOWNLOAD_DIR
       
@@ -125,8 +135,8 @@ class YTDLApp(customtkinter.CTk):
         self.progress_label.configure(text="0%")
         try:
             #print("The link is: ", self.url_var.get())
-            dir_path = self.dir_var.get()
-            if os.path.isdir(dir_path) and dir_path.strip():
+            dir_path = Path(self.dir_var.get().strip())
+            if dir_path.is_dir():
                 self.download_dir = dir_path
                 self.status_label.configure(text="Download directory set successfully!", text_color="green")
             else:
@@ -162,13 +172,13 @@ class YTDLApp(customtkinter.CTk):
             #Make the video and audio clips
             try:
                 self.status_label.configure(text="Combining video...", text_color="yellow")
-                video_clip = VideoFileClip(os.path.join(self.download_dir, 'video.mp4'))
+                video_clip = VideoFileClip(self.download_dir / 'video.mp4')
             except Exception as e:
                 self.status_label.configure(text=f"An error occurred while making the video clip.\nError: {e}", text_color="red")
                 breakpoint()
             try:
                 self.status_label.configure(text="Combining audio...", text_color="yellow")
-                audio_clip = AudioFileClip(os.path.join(self.download_dir, 'audio.mp4'))
+                audio_clip = AudioFileClip(self.download_dir / 'audio.mp4')
             except Exception as e:
                 self.status_label.configure(text=f"An error occurred while making the audio clip.\nError: {e}", text_color="red")
                 breakpoint()
@@ -183,15 +193,15 @@ class YTDLApp(customtkinter.CTk):
 
             try:
                 self.status_label.configure(text="Writing final video...", text_color="yellow")
-                final_clip.write_videofile(os.path.join(self.download_dir, f"{YT_object.title}.mp4"))
+                final_clip.write_videofile(self.download_dir / f"{YT_object.title}.mp4")
             except Exception as e:
                 self.status_label.configure(text=f"An error occurred while writing the final video.\nError: {e}", text_color="red")
                 breakpoint()
             
             #Delete the video and audio files
             #Non metto la try/except perchè se non vanno a buon fine non mi interessa
-            os.remove(os.path.join(self.download_dir, 'video.mp4'))
-            os.remove(os.path.join(self.download_dir, 'audio.mp4'))
+            (self.download_dir / 'video.mp4').unlink()
+            (self.download_dir / 'audio.mp4').unlink()
             
             self.status_label.configure(text="Download completed!", text_color="green")
         except Exception as e:
@@ -203,8 +213,8 @@ class YTDLApp(customtkinter.CTk):
         self.progress_label.configure(text="0%")
         try:
             print("The link is: ", self.url_var.get())
-            dir_path = self.dir_var.get()
-            if os.path.isdir(dir_path) and dir_path.strip():
+            dir_path = Path(self.dir_var.get().strip())
+            if dir_path.is_dir():
                 self.download_dir = dir_path
                 self.status_label.configure(text="Download directory set successfully!", text_color="green")
             else:
@@ -218,11 +228,13 @@ class YTDLApp(customtkinter.CTk):
             audio_stream = YT_object.streams.filter(only_audio=True, abr=self.audio_quality_var.get().split("-")[0]).first()
             self.status_label.configure(text=f"Downloading:\n{YT_object.title}\nIn:{self.download_dir}", text_color="yellow")
             audio_file = audio_stream.download(output_path=self.download_dir)
+            if audio_file is None:
+                raise ValueError("Download failed.")
+            
+            audio_file = Path(audio_file)
             
             # Convert to mp3
-            base, ext = os.path.splitext(audio_file)
-            new_file = base + '.mp3'
-            os.rename(audio_file, new_file)
+            audio_file.rename(audio_file.parent / f'{audio_file.stem}.mp3')
             
             self.status_label.configure(text="Download completed!", text_color="green")
         except Exception as e:
