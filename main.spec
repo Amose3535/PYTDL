@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('./icon.ico', 'icon.ico')]
+datas = [('./src/pytdl/assets/icon.ico', 'pytdl/assets/icon.ico')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('customtkinter')
@@ -9,7 +9,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['main.py'],
+    ['src\\pytdl\\main.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -42,5 +42,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icon.ico'],
+    icon=['src\\pytdl\\assets\\icon.ico'],
 )
